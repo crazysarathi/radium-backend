@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -30,6 +31,19 @@ async def lifespan(app: FastAPI):
         settings.APP_ENV,
         "off" if settings.is_production else f"{settings.PUBLIC_BASE_URL}/docs",
     )
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception(
+            "Database unreachable at startup. If this is a deployed service "
+            "(Render, etc.), this almost always means DATABASE_URL (or "
+            "POSTGRES_HOST/PORT/USER/PASSWORD/DB) isn't set in that "
+            "platform's environment-variable settings — .env is gitignored "
+            "and is never uploaded, so the app fell back to its localhost "
+            "default. Set those variables in the dashboard and redeploy."
+        )
+        raise
     yield
     await engine.dispose()
     logger.info("%s stopped", settings.APP_NAME)

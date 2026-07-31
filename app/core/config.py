@@ -109,6 +109,14 @@ class Settings(BaseSettings):
             insecure.append("SECRET_KEY (generate one with: openssl rand -hex 32)")
         if not self.DATABASE_URL and self.POSTGRES_PASSWORD == "radium":
             insecure.append("POSTGRES_PASSWORD")
+        if not self.DATABASE_URL and self.POSTGRES_HOST in ("localhost", "127.0.0.1"):
+            insecure.append(
+                "POSTGRES_HOST (still 'localhost' — this host has no database "
+                "in a deployed environment; set DATABASE_URL or "
+                "POSTGRES_HOST/PORT/USER/PASSWORD/DB in the platform's "
+                "environment-variable settings, e.g. Render's Environment tab — "
+                ".env is gitignored and never reaches the deployed service)"
+            )
         if self.FIRST_SUPERUSER_PASSWORD == "radium@2026":
             insecure.append("FIRST_SUPERUSER_PASSWORD")
         if insecure:
@@ -122,6 +130,14 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         if self.DATABASE_URL:
+            # Managed Postgres providers (Render, Heroku, Supabase, Neon, ...)
+            # hand out DSNs starting with postgres:// or postgresql://, which
+            # the asyncpg dialect doesn't understand — coerce to the driver
+            # SQLAlchemy needs instead of failing with an obscure dialect error.
+            if self.DATABASE_URL.startswith("postgres://"):
+                return "postgresql+asyncpg://" + self.DATABASE_URL[len("postgres://") :]
+            if self.DATABASE_URL.startswith("postgresql://"):
+                return "postgresql+asyncpg://" + self.DATABASE_URL[len("postgresql://") :]
             return self.DATABASE_URL
         return (
             f"postgresql+asyncpg://{quote_plus(self.POSTGRES_USER)}:"

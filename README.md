@@ -174,6 +174,29 @@ restarts on failure; put a reverse proxy (nginx/Caddy) in front for TLS.
 `SECRET_KEY`, `POSTGRES_PASSWORD`, or `FIRST_SUPERUSER_PASSWORD` are still at
 their shipped default values.
 
+## Deploying to Render
+
+`.env` is gitignored on purpose and never reaches Render — set every key from
+`.env.example` in the service's **Environment** tab instead (Dashboard →
+your service → Environment). At minimum:
+
+- `DATABASE_URL` — a reachable Postgres instance. Render's own Postgres add-on
+  gives you a DSN starting `postgres://`; the app coerces that to
+  `postgresql+asyncpg://` automatically, so paste it as-is. Prefer the
+  **Internal Database URL** if the database is a Render Postgres in the same
+  region (no TLS needed, lower latency) over the External one.
+- `APP_ENV=production` — also makes the app refuse to boot with any default
+  `SECRET_KEY` / `POSTGRES_PASSWORD` / `FIRST_SUPERUSER_PASSWORD`, so set
+  those too.
+- `SECRET_KEY`, `FIRST_SUPERUSER_EMAIL`, `FIRST_SUPERUSER_PASSWORD`.
+
+Forgetting `DATABASE_URL` leaves `POSTGRES_HOST` at its `localhost` default,
+which Render's container can't reach — the service still starts (uvicorn
+doesn't need the database), but every DB-touching request throws
+`ConnectionRefusedError` at connection time. A startup DB ping now fails the
+deploy immediately with an actionable log line instead of only surfacing
+this on a user's first login.
+
 ## Operational notes for a real deployment
 
 - **Reverse proxy**: the app trusts `request.client` (the direct TCP peer),
