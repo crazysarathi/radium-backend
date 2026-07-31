@@ -54,20 +54,11 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 20
 
     # ── CORS ─────────────────────────────────────────────────
-    # Exact origins, for anything the regex below doesn't cover (e.g. a
-    # future custom domain like https://admin.radium.com).
-    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(default_factory=list)
-    # Matches local dev (any localhost/127.0.0.1/private-LAN origin, any
-    # port, http or https) and every Vercel deployment — production domain
-    # AND the per-branch/per-PR preview URLs — without needing to hand-add
-    # each one. An origin is allowed if it matches CORS_ORIGINS OR this.
-    CORS_ORIGIN_REGEX: str | None = (
-        r"^(https://[a-z0-9-]+\.vercel\.app"
-        r"|https?://(localhost|127\.0\.0\.1"
-        r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
-        r"|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
-        r"|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?)$"
-    )
+    # "*" — wide open, any origin (dev, LAN, any Vercel deploy, anything).
+    # Auth here is a bearer token, not cookies, and Starlette reflects the
+    # specific request origin instead of a literal "*" whenever
+    # allow_credentials is on, so this stays spec-valid even so.
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["*"])
 
     # ── Rate limiting ────────────────────────────────────────
     RATE_LIMIT_DEFAULT: str = "120/minute"
