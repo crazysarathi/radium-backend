@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DBSession, WriterUser
+from app.api.deps import DBSession, WriterUser
 from app.schemas.accessory import AccessoryCreate, AccessoryRead, AccessoryUpdate
 from app.schemas.common import APIResponse
 from app.services.accessory import AccessoryService
@@ -11,9 +11,7 @@ router = APIRouter(prefix="/accessories", tags=["Accessories"])
 
 
 @router.get("", response_model=APIResponse[list[AccessoryRead]])
-async def list_accessories(
-    session: DBSession, user: CurrentUser
-) -> APIResponse[list[AccessoryRead]]:
+async def list_accessories(session: DBSession) -> APIResponse[list[AccessoryRead]]:
     accessories = await AccessoryService(session).list_accessories()
     return APIResponse(data=[AccessoryRead.model_validate(a) for a in accessories])
 
@@ -27,9 +25,7 @@ async def create_accessory(
 
 
 @router.get("/{accessory_id}", response_model=APIResponse[AccessoryRead])
-async def get_accessory(
-    accessory_id: str, session: DBSession, user: CurrentUser
-) -> APIResponse[AccessoryRead]:
+async def get_accessory(accessory_id: str, session: DBSession) -> APIResponse[AccessoryRead]:
     accessory = await AccessoryService(session).get_accessory(accessory_id)
     return APIResponse(data=AccessoryRead.model_validate(accessory))
 

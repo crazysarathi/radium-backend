@@ -25,7 +25,7 @@ from app.models.activity_log import ActivityLog
 from app.models.category import Category
 from app.models.enquiry import Enquiry
 from app.models.product import Product
-from app.models.variant import ChassisModel, JupiterModel
+from app.models.variant import Variant
 
 logger = logging.getLogger(__name__)
 
@@ -79,43 +79,41 @@ async def import_products(session, data_dir: Path) -> None:
     logger.info("Queued %d products", len(items))
 
 
-async def import_jupiter_models(session, data_dir: Path) -> None:
-    if not await table_is_empty(session, JupiterModel):
-        logger.info("jupiter_models already has rows — skipping")
+async def import_variants(session, data_dir: Path) -> None:
+    """Seed the unified variants table from the legacy per-family JSON files."""
+    if not await table_is_empty(session, Variant):
+        logger.info("variants already has rows — skipping")
         return
-    items = load(data_dir, "jupiter-models.json")
-    for m in items:
-        session.add(
-            JupiterModel(
-                id=m["id"],
-                code=m["code"],
-                name=m["name"],
-                family=m["family"],
-                rack_units=m.get("rackUnits", "4U"),
-                status=m.get("status", "available"),
+    count = 0
+    if (data_dir / "jupiter-models.json").is_file():
+        for m in load(data_dir, "jupiter-models.json"):
+            session.add(
+                Variant(
+                    id=m["id"],
+                    name=m["name"],
+                    code=m["code"],
+                    family=m["family"],
+                    rack_units=m.get("rackUnits", "4U"),
+                    status=m.get("status", "available"),
+                )
             )
-        )
-    logger.info("Queued %d Jupiter models", len(items))
-
-
-async def import_chassis_models(session, data_dir: Path) -> None:
-    if not await table_is_empty(session, ChassisModel):
-        logger.info("chassis_models already has rows — skipping")
-        return
-    items = load(data_dir, "chassis-models.json")
-    for m in items:
-        session.add(
-            ChassisModel(
-                id=m["id"],
-                model=m["model"],
-                ru=m.get("ru", "2U"),
-                img=m.get("img", ""),
-                bullets=m.get("bullets", []),
-                family=m["family"],
-                status=m.get("status", "available"),
+            count += 1
+    if (data_dir / "chassis-models.json").is_file():
+        for m in load(data_dir, "chassis-models.json"):
+            session.add(
+                Variant(
+                    id=m["id"],
+                    name=m["model"],
+                    code=None,
+                    family=m["family"],
+                    rack_units=m.get("ru", "2U"),
+                    img=m.get("img", ""),
+                    bullets=m.get("bullets", []),
+                    status=m.get("status", "available"),
+                )
             )
-        )
-    logger.info("Queued %d chassis models", len(items))
+            count += 1
+    logger.info("Queued %d variants", count)
 
 
 async def import_accessories(session, data_dir: Path) -> None:
@@ -183,8 +181,7 @@ async def run(data_dir: Path) -> None:
         await session.flush()
         await import_products(session, data_dir)
         await session.flush()
-        await import_jupiter_models(session, data_dir)
-        await import_chassis_models(session, data_dir)
+        await import_variants(session, data_dir)
         await import_accessories(session, data_dir)
         await import_enquiries(session, data_dir)
         await import_activity(session, data_dir)

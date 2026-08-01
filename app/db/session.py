@@ -1,22 +1,20 @@
 """Async SQLAlchemy engine and session factory."""
 
+import ssl
 from collections.abc import AsyncIterator
 
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
-import ssl
 
-# engine = create_async_engine(
-#     settings.async_database_url,
-#     echo=settings.DB_ECHO,
-#     pool_pre_ping=True,
-#     pool_size=settings.DB_POOL_SIZE,
-#     max_overflow=settings.DB_MAX_OVERFLOW,
-# )
-
-
-ssl_context = ssl.create_default_context()
+# Managed Postgres (Render, etc.) requires verified TLS, but a local Postgres
+# only has a self-signed certificate that fails hostname verification — so the
+# strict SSL context is applied only when the database host isn't local.
+_db_host = make_url(settings.async_database_url).host or "localhost"
+_connect_args: dict = {}
+if _db_host not in ("localhost", "127.0.0.1", "::1"):
+    _connect_args["ssl"] = ssl.create_default_context()
 
 engine = create_async_engine(
     settings.async_database_url,
@@ -24,7 +22,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
-    connect_args={"ssl": ssl_context},
+    connect_args=_connect_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DBSession, WriterUser
+from app.api.deps import DBSession, WriterUser
 from app.schemas.common import APIResponse
 from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
 from app.services.product import ProductService
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/products", tags=["Products"])
 
 
 @router.get("", response_model=APIResponse[list[ProductRead]])
-async def list_products(session: DBSession, user: CurrentUser) -> APIResponse[list[ProductRead]]:
+async def list_products(session: DBSession) -> APIResponse[list[ProductRead]]:
     products = await ProductService(session).list_products()
     return APIResponse(data=[ProductRead.model_validate(p) for p in products])
 
@@ -25,9 +25,7 @@ async def create_product(
 
 
 @router.get("/{product_id}", response_model=APIResponse[ProductRead])
-async def get_product(
-    product_id: str, session: DBSession, user: CurrentUser
-) -> APIResponse[ProductRead]:
+async def get_product(product_id: str, session: DBSession) -> APIResponse[ProductRead]:
     product = await ProductService(session).get_product(product_id)
     return APIResponse(data=ProductRead.model_validate(product))
 
