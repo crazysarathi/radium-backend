@@ -45,9 +45,9 @@ class Settings(BaseSettings):
     # ── Database ─────────────────────────────────────────────
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = "radium"
-    POSTGRES_PASSWORD: str = "radium"
-    POSTGRES_DB: str = "radium"
+    POSTGRES_USER: str = "radium_user"
+    POSTGRES_PASSWORD: str = "Admin@123"
+    POSTGRES_DB: str = "radium01"
     DATABASE_URL: str | None = None
     DB_ECHO: bool = False
     DB_POOL_SIZE: int = 10
