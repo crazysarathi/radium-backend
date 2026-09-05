@@ -88,6 +88,40 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str = "radium@2026"
     FIRST_SUPERUSER_NAME: str = "Radium Admin"
 
+    @field_validator("APP_ENV", mode="before")
+    @classmethod
+    def _normalise_app_env(cls, value: object) -> object:
+        """Tolerate the ways a platform env-var panel mangles APP_ENV.
+
+        Render's "add from .env" bulk paste keeps trailing `# comments`, and a
+        manual entry sometimes ends up with the *key* pasted as the value
+        (``APP_ENV=APP_ENV``). Rather than crash the whole service on import,
+        strip comments/quotes, accept the short aliases, and treat an unusable
+        value as "unset": production when running on a hosting platform
+        (Render sets ``RENDER=true``), development otherwise.
+        """
+        if not isinstance(value, str):
+            return value
+        text = value.split("#", 1)[0].strip().strip("'\"").lower()
+        aliases = {
+            "prod": Environment.PRODUCTION,
+            "production": Environment.PRODUCTION,
+            "dev": Environment.DEVELOPMENT,
+            "development": Environment.DEVELOPMENT,
+            "local": Environment.DEVELOPMENT,
+        }
+        if text in aliases:
+            return aliases[text]
+        if text in ("", "app_env"):
+            import os
+
+            return (
+                Environment.PRODUCTION
+                if os.environ.get("RENDER")
+                else Environment.DEVELOPMENT
+            )
+        return text  # let the enum raise a proper error for anything else
+
     @field_validator("CORS_ORIGINS", "ALLOWED_UPLOAD_EXTENSIONS", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:
