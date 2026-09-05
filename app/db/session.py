@@ -8,13 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
-# Managed Postgres (Render, etc.) requires verified TLS, but a local Postgres
-# only has a self-signed certificate that fails hostname verification — so the
-# strict SSL context is applied only when the database host isn't local.
+# Managed Postgres (Render, etc.) speaks TLS, but presents a self-signed
+# certificate on a private hostname — strict CA + hostname verification
+# (ssl.create_default_context()) therefore always fails with
+# CERTIFICATE_VERIFY_FAILED. Encrypt the connection without verifying the
+# certificate (equivalent to libpq's sslmode=require, which is what Render
+# documents). A local Postgres gets no SSL at all.
 _db_host = make_url(settings.async_database_url).host or "localhost"
 _connect_args: dict = {}
 if _db_host not in ("localhost", "127.0.0.1", "::1"):
-    _connect_args["ssl"] = ssl.create_default_context()
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
+    _connect_args["ssl"] = _ssl_ctx
 
 engine = create_async_engine(
     settings.async_database_url,
