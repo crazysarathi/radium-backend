@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "radium_user"
     POSTGRES_PASSWORD: str = "Admin@123"
-    POSTGRES_DB: str = "radium01"
+    POSTGRES_DB: str = "radium"
     DATABASE_URL: str | None = None
     DB_ECHO: bool = False
     DB_POOL_SIZE: int = 10
