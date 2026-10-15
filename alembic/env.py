@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 import app.models  # noqa: F401  — register all models on Base.metadata
 from app.core.config import settings
 from app.db.base import Base
+from app.db.session import build_connect_args
 
 config = context.config
 
@@ -56,6 +57,7 @@ async def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=build_connect_args(settings.async_database_url),
     )
     async with connectable.connect() as connection:
         await connection.run_sync(_run_migrations)

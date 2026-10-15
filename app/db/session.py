@@ -8,19 +8,33 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
-# Managed Postgres (Render, etc.) speaks TLS, but presents a self-signed
-# certificate on a private hostname — strict CA + hostname verification
-# (ssl.create_default_context()) therefore always fails with
-# CERTIFICATE_VERIFY_FAILED. Encrypt the connection without verifying the
-# certificate (equivalent to libpq's sslmode=require, which is what Render
-# documents). A local Postgres gets no SSL at all.
-_db_host = make_url(settings.async_database_url).host or "localhost"
-_connect_args: dict = {}
-if _db_host not in ("localhost", "127.0.0.1", "::1"):
-    _ssl_ctx = ssl.create_default_context()
-    _ssl_ctx.check_hostname = False
-    _ssl_ctx.verify_mode = ssl.CERT_NONE
-    _connect_args["ssl"] = _ssl_ctx
+
+def build_connect_args(url: str) -> dict:
+    """asyncpg connect args for *url* — shared by the app engine and Alembic."""
+    parsed = make_url(url)
+    host = parsed.host or "localhost"
+    args: dict = {}
+    # Managed Postgres (Render, Supabase, ...) speaks TLS, but presents a self-signed
+    # certificate on a private hostname — strict CA + hostname verification
+    # (ssl.create_default_context()) therefore always fails with
+    # CERTIFICATE_VERIFY_FAILED. Encrypt the connection without verifying the
+    # certificate (equivalent to libpq's sslmode=require, which is what Render
+    # documents). A local Postgres gets no SSL at all.
+    if host not in ("localhost", "127.0.0.1", "::1"):
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        args["ssl"] = ssl_ctx
+    # Supabase's transaction pooler (Supavisor, port 6543) hands each
+    # transaction a different server connection, so asyncpg's prepared
+    # statements vanish between calls ("prepared statement ... does not
+    # exist"). Disable statement caching there; the session pooler (5432)
+    # and direct connections keep it.
+    if parsed.port == 6543:
+        args["statement_cache_size"] = 0
+        args["prepared_statement_cache_size"] = 0
+    return args
+
 
 engine = create_async_engine(
     settings.async_database_url,
@@ -28,7 +42,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
-    connect_args=_connect_args,
+    connect_args=build_connect_args(settings.async_database_url),
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
